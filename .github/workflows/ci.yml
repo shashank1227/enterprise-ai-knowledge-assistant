@@ -109,7 +109,7 @@ jobs:
 
   # ── Frontend: lint, type-check, build, image ─────────────
   frontend:
-    name: Frontend (Node ${{ env.NODE_VERSION }})
+    name: Frontend (Node 22)
     runs-on: ubuntu-latest
 
     steps:

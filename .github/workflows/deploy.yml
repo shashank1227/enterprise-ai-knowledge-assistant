@@ -7,13 +7,15 @@ on:
         description: Target environment
         required: true
         type: choice
-        options: [staging, production]
+        options:
+          - staging
+          - production
       image_tag:
-        description: Image tag to deploy (default: latest)
+        description: "Image tag to deploy (default: latest)"
         required: false
         default: latest
 
-  # Auto-deploy main → staging after CI passes
+  # Auto-deploy main → staging after CI completes
   workflow_run:
     workflows: [CI]
     branches: [main]
@@ -24,23 +26,48 @@ env:
   IMAGE_PREFIX: ${{ github.repository }}
 
 jobs:
-  deploy:
-    name: Deploy to ${{ github.event.inputs.environment || 'staging' }}
+  # Always runs so the workflow never fails with "No jobs were run".
+  gate:
+    name: Deploy gate
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+    outputs:
+      deploy: ${{ steps.gate.outputs.deploy }}
+      environment: ${{ steps.gate.outputs.environment }}
+      image_tag: ${{ steps.gate.outputs.image_tag }}
+    steps:
+      - name: Decide whether to deploy
+        id: gate
+        run: |
+          ENV="${{ github.event.inputs.environment || 'staging' }}"
+          TAG="${{ github.event.inputs.image_tag || github.event.workflow_run.head_sha || 'latest' }}"
+          echo "environment=${ENV}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            echo "Manual deploy requested → ${ENV} (tag=${TAG})"
+            exit 0
+          fi
+
+          if [ "${{ github.event.workflow_run.conclusion }}" = "success" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            echo "CI succeeded — deploying to ${ENV} (tag=${TAG})"
+            exit 0
+          fi
+
+          echo "deploy=false" >> "$GITHUB_OUTPUT"
+          echo "::notice::Skipping deploy because CI conclusion was '${{ github.event.workflow_run.conclusion }}'"
+
+  deploy:
+    name: Deploy to ${{ needs.gate.outputs.environment }}
+    needs: gate
+    if: needs.gate.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
     environment:
-      name: ${{ github.event.inputs.environment || 'staging' }}
+      name: ${{ needs.gate.outputs.environment }}
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set image tag
-        id: tag
-        run: |
-          TAG="${{ github.event.inputs.image_tag || github.event.workflow_run.head_sha || 'latest' }}"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
@@ -56,7 +83,7 @@ jobs:
             echo "${{ secrets.GITHUB_TOKEN }}" | \
               docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            export IMAGE_TAG=${{ steps.tag.outputs.tag }}
+            export IMAGE_TAG=${{ needs.gate.outputs.image_tag }}
             export REGISTRY=${{ env.REGISTRY }}
             export IMAGE_PREFIX=${{ env.IMAGE_PREFIX }}
 

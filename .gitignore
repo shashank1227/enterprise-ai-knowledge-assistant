@@ -10,36 +10,61 @@ mvnw.cmd
 
 # ── Spring Boot ───────────────────────────────────────────
 backend/src/main/resources/application-local.yml.bak
+backend/src/main/resources/application-*.yml.local
 /tmp/knowledge-uploads/
+**/uploads/
+**/knowledge-uploads/
 
 # ── Node / npm ────────────────────────────────────────────
 node_modules/
 frontend/dist/
 frontend/.vite/
+*.tsbuildinfo
 
 # ── Environment / secrets ─────────────────────────────────
 .env
+.env.*
+!.env.example
+!**/.env.example
 infrastructure/docker/.env
 *.env.local
 *.env.*.local
+*.pem
+*.key
+!*/*.example.key
+credentials.json
+**/secrets/
+**/service-account*.json
 
 # ── IDE ───────────────────────────────────────────────────
 .idea/
 *.iml
-.vscode/settings.json
+.vscode/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
+*.swp
+*.swo
 
 # ── OS ────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+._*
 
-# ── Logs ──────────────────────────────────────────────────
+# ── Logs / temp ───────────────────────────────────────────
 *.log
 logs/
+tmp/
+temp/
+*.tmp
 
 # ── Docker volumes (if accidentally created locally) ──────
 postgres_data/
 redis_data/
+backend_uploads/
+backend_logs/
+
+# ── Tooling / agent artifacts ─────────────────────────────
+.github/modernize/
+.cursor/

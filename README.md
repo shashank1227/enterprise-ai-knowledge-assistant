@@ -200,6 +200,20 @@ Main API prefixes:
 - `/api/v1/documents` — upload, list, delete, re-index
 - `/api/v1/chat` — conversations, RAG answers, feedback, streaming
 
+## Deployment (GitHub Actions)
+
+After CI succeeds on `main`, the Deploy workflow SSHes into your host and pulls GHCR images. Configure these secrets on the `staging` / `production` GitHub Environments (Settings → Environments):
+
+| Secret | Purpose |
+| --- | --- |
+| `DEPLOY_HOST` | SSH hostname or IP of the target server |
+| `DEPLOY_USER` | SSH username |
+| `DEPLOY_SSH_KEY` | Private key for that user |
+
+Until those secrets exist, auto-deploy soft-skips (CI stays green). Manual **Run workflow** fails with a clear error if they are missing.
+
+The remote host is expected to have the app at `/opt/knowledge-assistant` with a Compose file that can pull `backend` / `frontend` images.
+
 ## Notes
 
 - The `local` profile uses local file storage and is intended for development.

@@ -1,6 +1,6 @@
 import { cn } from '@/utils/cn'
 import type { Citation } from '@/types'
-import { FileText, X, ExternalLink } from 'lucide-react'
+import { FileText, X } from 'lucide-react'
 
 interface Props {
   citations: Citation[]

@@ -1,0 +1,78 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options: [staging, production]
+      image_tag:
+        description: Image tag to deploy (default: latest)
+        required: false
+        default: latest
+
+  # Auto-deploy main → staging after CI passes
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment || 'staging' }}
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    environment:
+      name: ${{ github.event.inputs.environment || 'staging' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.image_tag || github.event.workflow_run.head_sha || 'latest' }}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/knowledge-assistant
+
+            # Pull latest images
+            echo "${{ secrets.GITHUB_TOKEN }}" | \
+              docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            export IMAGE_TAG=${{ steps.tag.outputs.tag }}
+            export REGISTRY=${{ env.REGISTRY }}
+            export IMAGE_PREFIX=${{ env.IMAGE_PREFIX }}
+
+            docker compose pull backend frontend
+            docker compose up -d --no-build backend frontend nginx
+
+            # Wait for health
+            echo "Waiting for backend health..."
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:8080/actuator/health | grep -q '"status":"UP"'; then
+                echo "Backend healthy"
+                break
+              fi
+              [ $i -eq 12 ] && echo "Timeout waiting for health" && exit 1
+              sleep 10
+            done
+
+            docker image prune -f
+            echo "Deployment complete"

@@ -1,0 +1,1129 @@
+openapi: 3.1.0
+info:
+  title: Enterprise AI Knowledge Assistant API
+  description: |
+    Production-grade RAG-powered knowledge assistant API.
+    Enables semantic search and AI-powered Q&A over enterprise documents.
+  version: 1.0.0
+  contact:
+    name: Platform Engineering
+    email: platform@enterprise.com
+
+servers:
+  - url: https://api.knowledge.enterprise.com/v1
+    description: Production
+  - url: https://api-staging.knowledge.enterprise.com/v1
+    description: Staging
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Auth
+  - name: Documents
+  - name: Chat
+  - name: Analytics
+  - name: Admin
+  - name: Health
+
+paths:
+
+  # ─── AUTH ───────────────────────────────────────────────────
+
+  /auth/signup:
+    post:
+      tags: [Auth]
+      summary: Register a new user account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate and receive JWT tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token using refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: New access token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefreshResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke refresh token and end session
+      responses:
+        '204':
+          description: Logged out successfully
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current authenticated user profile
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  # ─── DOCUMENTS ─────────────────────────────────────────────
+
+  /documents:
+    get:
+      tags: [Documents]
+      summary: List documents with pagination and filters
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, PROCESSING, INDEXED, FAILED]
+        - name: fileType
+          in: query
+          schema:
+            type: string
+            enum: [PDF, DOCX, TXT, MD, HTML]
+        - name: tags
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, title, fileSize]
+            default: createdAt
+        - name: sortDir
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Paginated document list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentPage'
+
+    post:
+      tags: [Documents]
+      summary: Upload a new document for ingestion
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                title:
+                  type: string
+                description:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                category:
+                  type: string
+                metadata:
+                  type: object
+                  additionalProperties:
+                    type: string
+      responses:
+        '202':
+          description: Document accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '413':
+          description: File too large
+        '415':
+          description: Unsupported file type
+
+  /documents/bulk:
+    post:
+      tags: [Documents]
+      summary: Upload multiple documents at once
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                category:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '202':
+          description: Documents accepted for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted:
+                    type: integer
+                  rejected:
+                    type: integer
+                  documents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DocumentResponse'
+
+  /documents/{id}:
+    get:
+      tags: [Documents]
+      summary: Get document details by ID
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+          description: Document details
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Documents]
+      summary: Soft-delete a document and its embeddings
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '204':
+          description: Document deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /documents/{id}/reindex:
+    post:
+      tags: [Documents]
+      summary: Re-extract and re-embed a document
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '202':
+          description: Re-indexing started
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /documents/{id}/download:
+    get:
+      tags: [Documents]
+      summary: Get a pre-signed S3 download URL
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  downloadUrl:
+                    type: string
+                    format: uri
+                  expiresAt:
+                    type: string
+                    format: date-time
+          description: Pre-signed URL
+
+  # ─── CHAT ──────────────────────────────────────────────────
+
+  /chat/conversations:
+    get:
+      tags: [Chat]
+      summary: List user conversations
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: pinned
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationPage'
+          description: Conversation list
+
+    post:
+      tags: [Chat]
+      summary: Start a new conversation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+          description: New conversation
+
+  /chat/conversations/{id}:
+    get:
+      tags: [Chat]
+      summary: Get conversation with message history
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationDetailResponse'
+          description: Conversation with messages
+
+    delete:
+      tags: [Chat]
+      summary: Delete a conversation
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '204':
+          description: Deleted
+
+  /chat/conversations/{id}/pin:
+    put:
+      tags: [Chat]
+      summary: Toggle pin status of a conversation
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+          description: Updated conversation
+
+  /chat/ask:
+    post:
+      tags: [Chat]
+      summary: Ask a question (non-streaming)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+          description: AI answer with citations
+
+  /chat/stream:
+    post:
+      tags: [Chat]
+      summary: Ask a question with Server-Sent Events streaming
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: SSE stream of tokens
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |
+                  data: {"type":"token","content":"The "}
+                  data: {"type":"token","content":"authentication "}
+                  data: {"type":"citations","citations":[{"index":1,"documentId":"...","title":"Auth Guide"}]}
+                  data: {"type":"done","messageId":"...","conversationId":"..."}
+
+  /chat/messages/{id}/regenerate:
+    post:
+      tags: [Chat]
+      summary: Regenerate the AI response for a message
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+          description: Regenerated response
+
+  /chat/messages/{id}/feedback:
+    post:
+      tags: [Chat]
+      summary: Submit feedback for an AI response
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+      responses:
+        '201':
+          description: Feedback recorded
+
+  # ─── ANALYTICS ─────────────────────────────────────────────
+
+  /analytics/overview:
+    get:
+      tags: [Analytics]
+      summary: High-level metrics for admin dashboard
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsOverview'
+          description: Analytics summary
+
+  /analytics/popular-questions:
+    get:
+      tags: [Analytics]
+      summary: Most frequently asked questions
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PopularQuestion'
+          description: Popular questions
+
+  /analytics/token-usage:
+    get:
+      tags: [Analytics]
+      summary: Daily token usage and cost breakdown
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DailyTokenUsage'
+          description: Token usage by day
+
+  # ─── ADMIN ─────────────────────────────────────────────────
+
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: List all users (ADMIN only)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: size
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+          description: User list
+
+  /admin/users/{id}/roles:
+    put:
+      tags: [Admin]
+      summary: Update user roles
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roles:
+                  type: array
+                  items:
+                    type: string
+                    enum: [ADMIN, USER, VIEWER]
+      responses:
+        '200':
+          description: Roles updated
+
+  /admin/users/{id}/deactivate:
+    put:
+      tags: [Admin]
+      summary: Deactivate a user account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User deactivated
+
+  # ─── HEALTH ────────────────────────────────────────────────
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Application health check
+      security: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+          description: Healthy
+        '503':
+          description: Unhealthy
+
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Readiness probe for Kubernetes / ECS
+      security: []
+      responses:
+        '200':
+          description: Ready
+        '503':
+          description: Not ready
+
+# ─── COMPONENTS ──────────────────────────────────────────────
+
+components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    DocumentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ConversationId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+
+  schemas:
+
+    SignupRequest:
+      type: object
+      required: [email, password, fullName]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        fullName:
+          type: string
+        department:
+          type: string
+        jobTitle:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        tokenType:
+          type: string
+          example: Bearer
+        expiresIn:
+          type: integer
+          description: Access token TTL in seconds
+        user:
+          $ref: '#/components/schemas/UserProfile'
+
+    TokenRefreshResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        expiresIn:
+          type: integer
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        fullName:
+          type: string
+        department:
+          type: string
+        jobTitle:
+          type: string
+        avatarUrl:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    DocumentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        fileName:
+          type: string
+        fileType:
+          type: string
+        fileSizeBytes:
+          type: integer
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, INDEXED, FAILED]
+        tags:
+          type: array
+          items:
+            type: string
+        category:
+          type: string
+        chunkCount:
+          type: integer
+        pageCount:
+          type: integer
+        uploadedBy:
+          type: string
+        uploadedByName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        indexedAt:
+          type: string
+          format: date-time
+
+    DocumentPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentResponse'
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+
+    ChatRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        conversationId:
+          type: string
+          format: uuid
+          description: Omit to start a new conversation
+        searchMode:
+          type: string
+          enum: [HYBRID, VECTOR, KEYWORD]
+          default: HYBRID
+        topK:
+          type: integer
+          default: 5
+          minimum: 1
+          maximum: 20
+        documentIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Restrict retrieval to specific documents
+
+    ChatResponse:
+      type: object
+      properties:
+        messageId:
+          type: string
+          format: uuid
+        conversationId:
+          type: string
+          format: uuid
+        answer:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+        tokensUsed:
+          type: integer
+        latencyMs:
+          type: integer
+        model:
+          type: string
+        confidenceScore:
+          type: number
+          format: float
+
+    Citation:
+      type: object
+      properties:
+        index:
+          type: integer
+        documentId:
+          type: string
+          format: uuid
+        documentTitle:
+          type: string
+        chunkId:
+          type: string
+          format: uuid
+        excerpt:
+          type: string
+        pageNumber:
+          type: integer
+        sectionTitle:
+          type: string
+        relevanceScore:
+          type: number
+          format: float
+
+    ConversationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        isPinned:
+          type: boolean
+        messageCount:
+          type: integer
+        lastMessageAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    ConversationDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ConversationResponse'
+        - type: object
+          properties:
+            messages:
+              type: array
+              items:
+                $ref: '#/components/schemas/MessageResponse'
+
+    MessageResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [USER, ASSISTANT]
+        content:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+        tokensUsed:
+          type: integer
+        latencyMs:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    ConversationPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationResponse'
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    FeedbackRequest:
+      type: object
+      required: [rating]
+      properties:
+        rating:
+          type: integer
+          enum: [1, 5]
+          description: 1 = thumbs down, 5 = thumbs up
+        comment:
+          type: string
+        feedbackType:
+          type: string
+          enum: [HELPFUL, INACCURATE, INCOMPLETE, HARMFUL]
+
+    AnalyticsOverview:
+      type: object
+      properties:
+        totalDocuments:
+          type: integer
+        totalChunks:
+          type: integer
+        totalQueries:
+          type: integer
+        totalUsers:
+          type: integer
+        avgLatencyMs:
+          type: number
+        totalTokensUsed:
+          type: integer
+        estimatedCostUsd:
+          type: number
+        queriesLast7Days:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+              count:
+                type: integer
+
+    PopularQuestion:
+      type: object
+      properties:
+        query:
+          type: string
+        count:
+          type: integer
+        avgLatencyMs:
+          type: number
+
+    DailyTokenUsage:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        promptTokens:
+          type: integer
+        completionTokens:
+          type: integer
+        totalTokens:
+          type: integer
+        estimatedCostUsd:
+          type: number
+
+    UserPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserProfile'
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [UP, DOWN, DEGRADED]
+        timestamp:
+          type: string
+          format: date-time
+        components:
+          type: object
+          properties:
+            database:
+              $ref: '#/components/schemas/ComponentHealth'
+            redis:
+              $ref: '#/components/schemas/ComponentHealth'
+            openai:
+              $ref: '#/components/schemas/ComponentHealth'
+            s3:
+              $ref: '#/components/schemas/ComponentHealth'
+
+    ComponentHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [UP, DOWN]
+        latencyMs:
+          type: integer
+        details:
+          type: object
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+
+    ValidationErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - type: object
+          properties:
+            fieldErrors:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+                  rejectedValue:
+                    type: string

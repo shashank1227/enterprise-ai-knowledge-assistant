@@ -1,0 +1,57 @@
+# application-local.yml
+# Overrides for local development (active when SPRING_PROFILES_ACTIVE=local)
+# These values are safe for local dev only — never commit real secrets.
+
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/knowledge_db}
+    username: ${DATABASE_USERNAME:knowledge_user}
+    password: ${DATABASE_PASSWORD:knowledge_pass}
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ""
+
+  jpa:
+    show-sql: false
+
+app:
+  openai:
+    # Set via env var: export OPENAI_API_KEY=sk-...
+    api-key: ${OPENAI_API_KEY:}
+    chat-model: gpt-4.1-mini        # cheaper model for local dev
+    max-tokens: 1000
+    temperature: 0.2
+
+  storage:
+    type: local
+    local:
+      upload-dir: /tmp/knowledge-uploads
+
+  jwt:
+    secret: local-dev-secret-at-least-256-bits-long-do-not-use-in-prod
+    access-token-expiry-ms: 3600000    # 1 hour (more convenient for dev)
+    refresh-token-expiry-ms: 604800000
+
+  rate-limit:
+    enabled: false                     # disable rate limiting locally
+
+  security:
+    cors:
+      allowed-origins:
+        - http://localhost:5173
+        - http://localhost:3000
+        - http://127.0.0.1:5173
+        - http://127.0.0.1:3000
+
+logging:
+  level:
+    com.enterprise.knowledge: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: WARN
+    dev.langchain4j: DEBUG
+
+server:
+  port: 8080

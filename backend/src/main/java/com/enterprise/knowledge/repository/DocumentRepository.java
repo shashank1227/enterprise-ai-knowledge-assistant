@@ -26,14 +26,14 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
         WHERE d.deletedAt IS NULL
           AND (:status IS NULL OR d.status = :status)
           AND (:fileType IS NULL OR d.fileType = :fileType)
-          AND (:search IS NULL OR
-               LOWER(d.title) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(d.description) LIKE LOWER(CONCAT('%', :search, '%')))
+          AND (:searchPattern IS NULL OR
+               LOWER(d.title) LIKE :searchPattern OR
+               LOWER(COALESCE(d.description, '')) LIKE :searchPattern)
         """)
     Page<Document> findAllWithFilters(
-        @Param("status")   DocumentStatus status,
+        @Param("status") DocumentStatus status,
         @Param("fileType") FileType fileType,
-        @Param("search")   String search,
+        @Param("searchPattern") String searchPattern,
         Pageable pageable
     );
 

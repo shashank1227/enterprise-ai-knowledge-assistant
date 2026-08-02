@@ -42,6 +42,7 @@ public class AuditLog {
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> details;
 
+    @JdbcTypeCode(SqlTypes.INET)
     @Column(name = "ip_address", columnDefinition = "inet")
     private String ipAddress;
 

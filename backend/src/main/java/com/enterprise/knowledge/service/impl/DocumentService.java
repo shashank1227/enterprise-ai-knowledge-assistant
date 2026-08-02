@@ -15,6 +15,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -65,8 +67,12 @@ public class DocumentService {
         // Determine file type
         Document.FileType fileType = determineFileType(file.getOriginalFilename());
 
+        // Assign ID before storage so local/S3 paths can use it
+        UUID documentId = UUID.randomUUID();
+
         // Create document entity
         Document document = Document.builder()
+            .id(documentId)
             .title(title != null ? title : file.getOriginalFilename())
             .description(description)
             .fileName(file.getOriginalFilename())
@@ -80,24 +86,38 @@ public class DocumentService {
             .build();
 
         // Upload to storage
-        StorageService.StorageMetadata storage = storageService.upload(file, document.getId());
+        StorageService.StorageMetadata storage = storageService.upload(file, documentId);
         document.setS3Bucket(storage.bucket());
         document.setS3Key(storage.key());
 
-        document = documentRepository.save(document);
+        document = documentRepository.saveAndFlush(document);
         log.info("Document saved with ID: {}", document.getId());
 
-        // Start async ingestion pipeline
-        try {
-            ingestionService.ingestDocument(
-                document.getId(),
-                storageService.getInputStream(storage.bucket(), storage.key())
-            );
-        } catch (Exception e) {
-            log.error("Failed to start document ingestion: {}", e.getMessage());
-            document.setStatus(Document.DocumentStatus.FAILED);
-            document.setProcessingError("Failed to start processing: " + e.getMessage());
-            documentRepository.save(document);
+        // Ingestion must start AFTER this transaction commits, otherwise the async
+        // worker cannot see the new row (and may race with a regenerated ID).
+        final UUID savedId = document.getId();
+        final String bucket = storage.bucket();
+        final String key = storage.key();
+        Runnable startIngestion = () -> {
+            try {
+                ingestionService.ingestDocument(
+                    savedId,
+                    storageService.getInputStream(bucket, key)
+                );
+            } catch (Exception e) {
+                log.error("Failed to start document ingestion for {}: {}", savedId, e.getMessage(), e);
+            }
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    startIngestion.run();
+                }
+            });
+        } else {
+            startIngestion.run();
         }
 
         return documentMapper.toDocumentResponse(document);
@@ -113,10 +133,14 @@ public class DocumentService {
         String search,
         Pageable pageable
     ) {
+        String searchPattern = (search == null || search.isBlank())
+            ? null
+            : "%" + search.toLowerCase() + "%";
+
         Page<Document> documents = documentRepository.findAllWithFilters(
             status,
             fileType,
-            search,
+            searchPattern,
             pageable
         );
         return documents.map(documentMapper::toDocumentResponse);

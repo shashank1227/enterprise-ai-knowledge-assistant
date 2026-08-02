@@ -233,4 +233,3 @@ Once the backend is running, OpenAPI documentation is available at:
 ### Port conflicts
 
 If port 8080 or 5173 is already in use, stop the conflicting process or change the port configuration.
->>>>>>> cc949b1 (Inception)

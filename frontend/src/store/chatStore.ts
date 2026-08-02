@@ -84,11 +84,48 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       error: null,
     }))
 
+    const finishWithResponse = (response: {
+      messageId: string
+      conversationId: string
+      answer: string
+      citations?: Citation[]
+    }) => {
+      const assistantMessage: Message = {
+        id: response.messageId,
+        conversationId: response.conversationId,
+        role: 'ASSISTANT',
+        content: response.answer,
+        citations: response.citations,
+        createdAt: new Date().toISOString(),
+      }
+
+      set((state) => {
+        const updatedConversations = state.conversations.map((c) =>
+          c.id === response.conversationId
+            ? { ...c, lastMessageAt: new Date().toISOString() }
+            : c
+        )
+        const updatedMessages = state.messages.map((m) =>
+          m.id === tempUserMessage.id
+            ? { ...m, conversationId: response.conversationId }
+            : m
+        )
+        return {
+          messages: [...updatedMessages, assistantMessage],
+          activeConversationId: response.conversationId,
+          streamingContent: '',
+          isStreaming: false,
+          isSending: false,
+          conversations: updatedConversations,
+        }
+      })
+    }
+
     let streamingText = ''
     let finalCitations: Citation[] = []
-    let stopStream: (() => void) | null = null
+    let settled = false
 
-    stopStream = chatService.streamChat(
+    chatService.streamChat(
       request,
       (event) => {
         if (event.type === 'token') {
@@ -97,48 +134,39 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         } else if (event.type === 'citations') {
           finalCitations = event.citations
         } else if (event.type === 'done') {
-          const assistantMessage: Message = {
-            id: event.messageId,
+          settled = true
+          finishWithResponse({
+            messageId: event.messageId,
             conversationId: event.conversationId,
-            role: 'ASSISTANT',
-            content: streamingText,
+            answer: streamingText,
             citations: finalCitations,
-            createdAt: new Date().toISOString(),
-          }
-
-          set((state) => {
-            const updatedConversations = state.conversations.map((c) => {
-              if (c.id === event.conversationId) {
-                return { ...c, lastMessageAt: new Date().toISOString() }
-              }
-              return c
-            })
-            // If this was a new conversation, update the ID on the temp user message
-            const updatedMessages = state.messages.map((m) =>
-              m.id === tempUserMessage.id
-                ? { ...m, conversationId: event.conversationId }
-                : m
-            )
-            return {
-              messages: [...updatedMessages, assistantMessage],
-              activeConversationId: event.conversationId,
-              streamingContent: '',
-              isStreaming: false,
-              isSending: false,
-              conversations: updatedConversations,
-            }
           })
         } else if (event.type === 'error') {
+          settled = true
           set({ error: event.message, isStreaming: false, isSending: false, streamingContent: '' })
         }
       },
-      (err) => {
-        set({ error: err.message, isStreaming: false, isSending: false, streamingContent: '' })
+      async (err) => {
+        if (settled) return
+        // Fall back to non-streaming ask if SSE fails
+        try {
+          const response = await chatService.ask(request)
+          finishWithResponse({
+            messageId: response.messageId,
+            conversationId: response.conversationId,
+            answer: response.answer,
+            citations: response.citations,
+          })
+        } catch (askErr: unknown) {
+          set({
+            error: getErrorMessage(askErr) || err.message,
+            isStreaming: false,
+            isSending: false,
+            streamingContent: '',
+          })
+        }
       }
     )
-
-    // Store abort fn so it can be called (currently unused externally)
-    void stopStream
   },
 
   clearError: () => set({ error: null }),

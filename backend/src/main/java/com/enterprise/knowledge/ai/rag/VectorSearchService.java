@@ -37,18 +37,22 @@ public class VectorSearchService {
     public List<SearchResult> search(String queryText, int topK, SearchMode mode) {
         long startTime = System.currentTimeMillis();
 
-        // Generate query embedding
-        float[] queryEmbedding = embeddingService.embed(queryText);
-        String embeddingJson = embeddingService.toVectorString(queryEmbedding);
-
-        List<SearchResult> results = switch (mode) {
-            case VECTOR -> vectorSearch(embeddingJson, topK);
-            case KEYWORD -> keywordSearch(queryText, topK);
-            case HYBRID -> hybridSearch(embeddingJson, queryText, topK);
-        };
+        List<SearchResult> results;
+        if (mode == SearchMode.KEYWORD) {
+            results = keywordSearch(queryText, topK);
+        } else {
+            // VECTOR and HYBRID need an embedding — fail with a clear config error if missing
+            float[] queryEmbedding = embeddingService.embed(queryText);
+            String embeddingJson = embeddingService.toVectorString(queryEmbedding);
+            results = switch (mode) {
+                case VECTOR -> vectorSearch(embeddingJson, topK);
+                case HYBRID -> hybridSearch(embeddingJson, queryText, topK);
+                case KEYWORD -> keywordSearch(queryText, topK);
+            };
+        }
 
         long elapsedMs = System.currentTimeMillis() - startTime;
-        log.info("Search completed: mode={}, query='{}', results={}, latency={}ms", 
+        log.info("Search completed: mode={}, query='{}', results={}, latency={}ms",
             mode, queryText.substring(0, Math.min(50, queryText.length())), results.size(), elapsedMs);
 
         return results;

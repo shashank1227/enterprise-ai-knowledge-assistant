@@ -150,7 +150,7 @@ public class DocumentController {
      * Re-index a document (regenerate chunks and embeddings).
      */
     @PostMapping("/{id}/reindex")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<Void> reindexDocument(@PathVariable UUID id) throws IOException {
         log.info("Re-index request for document: {}", id);
         documentService.reindexDocument(id);

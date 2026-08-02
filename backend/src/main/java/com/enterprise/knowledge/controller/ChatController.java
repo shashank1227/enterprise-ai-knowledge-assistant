@@ -19,6 +19,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -125,29 +126,32 @@ public class ChatController {
     @PreAuthorize("hasAnyRole('USER', 'VIEWER', 'ADMIN')")
     public SseEmitter streamChat(@Valid @RequestBody ChatRequest request) {
         log.info("Streaming chat request received");
-        
-        SseEmitter emitter = new SseEmitter(60000L); // 60 second timeout
-        
+
+        SseEmitter emitter = new SseEmitter(120_000L);
+        // SecurityContext is ThreadLocal — copy it onto the worker thread
+        var securityContext = org.springframework.security.core.context.SecurityContextHolder.getContext();
+
         sseExecutor.execute(() -> {
+            org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
             try {
-                // Generate response (in production, this would stream from LLM)
                 ChatResponse response = conversationService.chat(request);
-                
-                // Simulate streaming by breaking answer into words
-                String[] words = response.getAnswer().split(" ");
+
+                String answer = response.getAnswer() != null ? response.getAnswer() : "";
+                String[] words = answer.isBlank() ? new String[]{""} : answer.split(" ");
                 for (String word : words) {
                     emitter.send(SseEmitter.event()
                         .data(Map.of("type", "token", "content", word + " "))
                         .id(UUID.randomUUID().toString()));
-                    Thread.sleep(50); // Simulate streaming delay
+                    Thread.sleep(30);
                 }
-                
-                // Send citations
+
                 emitter.send(SseEmitter.event()
-                    .data(Map.of("type", "citations", "citations", response.getCitations()))
+                    .data(Map.of(
+                        "type", "citations",
+                        "citations", response.getCitations() != null ? response.getCitations() : List.of()
+                    ))
                     .id(UUID.randomUUID().toString()));
-                
-                // Send completion
+
                 emitter.send(SseEmitter.event()
                     .data(Map.of(
                         "type", "done",
@@ -155,15 +159,23 @@ public class ChatController {
                         "conversationId", response.getConversationId().toString()
                     ))
                     .id(UUID.randomUUID().toString()));
-                
+
                 emitter.complete();
-                
             } catch (Exception e) {
-                log.error("Error during streaming: {}", e.getMessage());
-                emitter.completeWithError(e);
+                log.error("Error during streaming: {}", e.getMessage(), e);
+                try {
+                    emitter.send(SseEmitter.event()
+                        .data(Map.of("type", "error", "message", e.getMessage() != null ? e.getMessage() : "Chat failed"))
+                        .id(UUID.randomUUID().toString()));
+                    emitter.complete();
+                } catch (Exception sendError) {
+                    emitter.completeWithError(sendError);
+                }
+            } finally {
+                org.springframework.security.core.context.SecurityContextHolder.clearContext();
             }
         });
-        
+
         return emitter;
     }
 

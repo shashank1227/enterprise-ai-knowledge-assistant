@@ -28,7 +28,7 @@ app:
   storage:
     type: local
     local:
-      upload-dir: /tmp/knowledge-uploads
+      upload-dir: ${LOCAL_UPLOAD_DIR:/tmp/knowledge-uploads}
 
   jwt:
     secret: local-dev-secret-at-least-256-bits-long-do-not-use-in-prod
@@ -45,6 +45,12 @@ app:
         - http://localhost:3000
         - http://127.0.0.1:5173
         - http://127.0.0.1:3000
+        - http://localhost
+        - http://127.0.0.1
+        - ${FRONTEND_URL:http://localhost:5173}
+        - http://192.168.31.80:5173
+        - http://192.168.31.80
+        - http://192.168.31.80:80
 
 logging:
   level:

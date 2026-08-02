@@ -85,6 +85,21 @@ public class RagService {
         
         log.info("RAG query started: '{}'", request.query());
 
+        // No indexed corpus yet — answer without embeddings/LLM so local demo works
+        // even before OPENAI_API_KEY is configured.
+        long indexedCount = documentRepository.countByStatus(
+            com.enterprise.knowledge.domain.Document.DocumentStatus.INDEXED
+        );
+        if (indexedCount == 0) {
+            return RagResponse.builder()
+                .answer("I don't have any indexed documents yet. Upload a document from the Documents page, wait for it to finish indexing, then ask again. Note: indexing and AI answers require a valid OPENAI_API_KEY.")
+                .citations(List.of())
+                .retrievalLatencyMs(0)
+                .llmLatencyMs(0)
+                .totalLatencyMs((int) (System.currentTimeMillis() - startTime))
+                .build();
+        }
+
         // 1. Retrieve relevant chunks
         long retrievalStart = System.currentTimeMillis();
         VectorSearchService.SearchMode searchMode = parseSearchMode(request.searchMode());

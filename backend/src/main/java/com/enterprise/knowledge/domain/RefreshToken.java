@@ -2,6 +2,8 @@ package com.enterprise.knowledge.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -34,6 +36,7 @@ public class RefreshToken {
     @Column(name = "device_info", length = 255)
     private String deviceInfo;
 
+    @JdbcTypeCode(SqlTypes.INET)
     @Column(name = "ip_address", columnDefinition = "inet")
     private String ipAddress;
 

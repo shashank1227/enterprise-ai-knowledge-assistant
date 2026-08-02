@@ -71,10 +71,17 @@ public class EmbeddingService {
             
             return embedding.vector();
                 
+        } catch (IllegalStateException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Failed to generate embedding for text (length: {}): {}", 
+            log.error("Failed to generate embedding for text (length: {}): {}",
                 text.length(), e.getMessage());
-            throw new RuntimeException("Embedding generation failed", e);
+            Throwable root = e;
+            while (root.getCause() != null) {
+                root = root.getCause();
+            }
+            String detail = root.getMessage() != null ? root.getMessage() : e.getMessage();
+            throw new RuntimeException("Embedding generation failed: " + detail, e);
         }
     }
 

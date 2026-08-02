@@ -24,7 +24,6 @@ import java.util.*;
 public class Document {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(nullable = false, length = 500)
@@ -114,6 +113,13 @@ public class Document {
     @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<DocumentChunk> chunks = new ArrayList<>();
+
+    @PrePersist
+    void ensureId() {
+        if (id == null) {
+            id = UUID.randomUUID();
+        }
+    }
 
     // Soft delete
     public void softDelete() {

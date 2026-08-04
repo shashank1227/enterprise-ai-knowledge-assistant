@@ -144,7 +144,7 @@ export default function MessageBubble({ message, isStreaming, streamingContent }
               className={cn(
                 'p-1 rounded hover:bg-muted transition-colors',
                 feedback === 'up'
-                  ? 'text-green-600'
+                  ? 'text-emerald-400'
                   : 'text-muted-foreground hover:text-foreground'
               )}
               aria-label="Helpful"
@@ -156,7 +156,7 @@ export default function MessageBubble({ message, isStreaming, streamingContent }
               className={cn(
                 'p-1 rounded hover:bg-muted transition-colors',
                 feedback === 'down'
-                  ? 'text-red-600'
+                  ? 'text-red-400'
                   : 'text-muted-foreground hover:text-foreground'
               )}
               aria-label="Not helpful"

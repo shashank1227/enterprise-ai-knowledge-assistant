@@ -67,7 +67,7 @@ export default function CitationPanel({ citations, onClose }: Props) {
 function RelevanceBar({ score }: { score: number }) {
   const pct = Math.round(score * 100)
   const color =
-    pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-muted-foreground'
+    pct >= 70 ? 'bg-emerald-400' : pct >= 40 ? 'bg-amber-400' : 'bg-muted-foreground'
 
   return (
     <div className="flex items-center gap-2 w-full">

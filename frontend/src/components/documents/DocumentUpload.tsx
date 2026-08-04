@@ -139,7 +139,7 @@ export default function DocumentUpload({ onUploaded }: Props) {
                     <p className="text-xs text-destructive truncate">{uf.error}</p>
                   )}
                   {uf.status === 'done' && (
-                    <p className="text-xs text-green-600">Processing…</p>
+                    <p className="text-xs text-emerald-400">Processing…</p>
                   )}
                 </div>
               </div>
@@ -150,7 +150,7 @@ export default function DocumentUpload({ onUploaded }: Props) {
                   <Loader2 className="w-4 h-4 animate-spin text-primary" />
                 )}
                 {uf.status === 'done' && (
-                  <CheckCircle2 className="w-4 h-4 text-green-600" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 )}
                 {uf.status === 'error' && (
                   <AlertCircle className="w-4 h-4 text-destructive" />

@@ -27,18 +27,18 @@ const STATUS_CONFIG: Record<
 > = {
   PENDING: {
     label: 'Pending',
-    className: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
-    dot: 'bg-yellow-500',
+    className: 'bg-amber-400/10 text-amber-300 border-amber-400/20',
+    dot: 'bg-amber-400',
   },
   PROCESSING: {
     label: 'Processing',
-    className: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-    dot: 'bg-blue-500 animate-pulse',
+    className: 'bg-sky-400/10 text-sky-300 border-sky-400/20',
+    dot: 'bg-sky-400 animate-pulse',
   },
   INDEXED: {
     label: 'Indexed',
-    className: 'bg-green-500/10 text-green-600 border-green-500/20',
-    dot: 'bg-green-500',
+    className: 'bg-emerald-400/10 text-emerald-300 border-emerald-400/20',
+    dot: 'bg-emerald-400',
   },
   FAILED: {
     label: 'Failed',
@@ -48,9 +48,9 @@ const STATUS_CONFIG: Record<
 }
 
 function FileIcon({ fileType }: { fileType: string }) {
-  if (fileType === 'PDF') return <FileText className="w-5 h-5 text-red-500" />
-  if (fileType === 'DOCX') return <FileText className="w-5 h-5 text-blue-500" />
-  if (fileType === 'MD' || fileType === 'TXT') return <FileCode className="w-5 h-5 text-gray-500" />
+  if (fileType === 'PDF') return <FileText className="w-5 h-5 text-red-400/80" />
+  if (fileType === 'DOCX') return <FileText className="w-5 h-5 text-sky-400/80" />
+  if (fileType === 'MD' || fileType === 'TXT') return <FileCode className="w-5 h-5 text-muted-foreground" />
   return <FileType className="w-5 h-5 text-muted-foreground" />
 }
 

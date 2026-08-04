@@ -50,7 +50,7 @@ export default function MessageBubble({ message, isStreaming, streamingContent }
       </div>
 
       {/* Bubble */}
-      <div className={cn('flex flex-col gap-1 max-w-[80%]', isUser && 'items-end')}>
+      <div className={cn('flex flex-col gap-1 max-w-[88%] sm:max-w-[80%]', isUser && 'items-end')}>
         <div
           className={cn(
             'rounded-2xl px-4 py-3 text-sm leading-relaxed',

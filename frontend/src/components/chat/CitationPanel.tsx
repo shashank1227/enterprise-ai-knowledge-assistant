@@ -11,7 +11,20 @@ export default function CitationPanel({ citations, onClose }: Props) {
   if (citations.length === 0) return null
 
   return (
-    <aside className="w-80 flex-shrink-0 border-l border-border bg-card flex flex-col h-full">
+    <>
+      {/* Backdrop on small screens where the panel overlays the chat */}
+      <div
+        className="lg:hidden fixed inset-0 z-30 bg-black/60 animate-fade-in"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <aside
+        className={cn(
+          'fixed inset-y-0 right-0 z-40 w-80 max-w-[85vw] shadow-2xl',
+          'border-l border-border bg-card flex flex-col h-full',
+          'lg:static lg:z-auto lg:w-80 lg:max-w-none lg:flex-shrink-0 lg:shadow-none'
+        )}
+      >
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h2 className="text-sm font-semibold">Sources ({citations.length})</h2>
         <button
@@ -60,7 +73,8 @@ export default function CitationPanel({ citations, onClose }: Props) {
           </div>
         ))}
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }
 

@@ -17,7 +17,12 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-export default function Sidebar() {
+interface SidebarProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
@@ -44,6 +49,7 @@ export default function Sidebar() {
       const conv = await createConversation()
       selectConversation(conv.id)
       navigate('/chat')
+      onClose()
     } finally {
       setCreating(false)
     }
@@ -52,6 +58,7 @@ export default function Sidebar() {
   const handleSelectConversation = (id: string) => {
     selectConversation(id)
     navigate('/chat')
+    onClose()
   }
 
   const handleLogout = async () => {
@@ -66,7 +73,14 @@ export default function Sidebar() {
   const recent = conversations.filter((c) => !c.isPinned)
 
   return (
-    <aside className="w-64 flex-shrink-0 flex flex-col h-full bg-card border-r border-border">
+    <aside
+      className={cn(
+        'fixed inset-y-0 left-0 z-40 w-64 flex flex-col h-full bg-card border-r border-border',
+        'transform transition-transform duration-200 ease-out',
+        'md:static md:z-auto md:flex-shrink-0 md:translate-x-0',
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      )}
+    >
       {/* Logo */}
       <div className="flex items-center gap-2 px-4 py-4 border-b border-border">
         <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
@@ -95,6 +109,7 @@ export default function Sidebar() {
 
         <Link
           to="/chat"
+          onClick={onClose}
           className={cn(
             'flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
             isChat
@@ -108,6 +123,7 @@ export default function Sidebar() {
 
         <Link
           to="/documents"
+          onClick={onClose}
           className={cn(
             'flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
             isDocs

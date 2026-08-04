@@ -79,7 +79,7 @@ export default function DocumentsPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0 px-6 py-4 border-b border-border">
+      <div className="flex-shrink-0 px-4 sm:px-6 py-4 border-b border-border">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold">Documents</h1>
@@ -114,13 +114,13 @@ export default function DocumentsPage() {
       <div className="flex-1 overflow-y-auto">
         {/* Upload panel */}
         {showUpload && (
-          <div className="px-6 py-4 border-b border-border bg-muted/20">
+          <div className="px-4 sm:px-6 py-4 border-b border-border bg-muted/20">
             <DocumentUpload onUploaded={handleUploaded} />
           </div>
         )}
 
         {/* Filters */}
-        <div className="px-6 py-3 border-b border-border flex flex-wrap items-center gap-3">
+        <div className="px-4 sm:px-6 py-3 border-b border-border flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-48">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input

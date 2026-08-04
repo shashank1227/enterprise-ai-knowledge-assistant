@@ -60,6 +60,9 @@ OPENAI_API_KEY=sk-...
 JWT_SECRET=change-this-in-production-must-be-at-least-256-bits-long
 ```
 
+> The OpenAI account behind the key must have available credit — a valid key
+> with $0 balance fails with `insufficient_quota` during indexing and chat.
+
 ### 2. Run the full stack with Docker Compose
 
 ```bash
@@ -76,6 +79,50 @@ docker compose -f infrastructure/docker/docker-compose.yml up -d
 | Nginx (proxy) | http://localhost:80 |
 | Prometheus | http://localhost:9090 |
 | Grafana | http://localhost:3000 (default `admin` / `admin`) |
+
+### 4. Verify it works
+
+Sign up at http://localhost:5173, upload a PDF on the **Documents** page, wait
+for its status to flip to **Indexed** (a few seconds), then ask a question
+about it in **Chat**. Answers should include citations back to the document.
+
+## Live Demo (public URL)
+
+To share a temporary public link while the stack runs on your machine, expose
+the Nginx proxy (port 80 — it fronts both the frontend and the API, so
+everything stays same-origin) with a Cloudflare quick tunnel:
+
+```bash
+brew install cloudflared   # once
+cloudflared tunnel --url http://localhost:80
+```
+
+Copy the generated `https://<random-words>.trycloudflare.com` URL, then allow
+it as a CORS origin and restart the backend:
+
+```bash
+# infrastructure/docker/.env
+FRONTEND_URL=https://<random-words>.trycloudflare.com
+```
+
+```bash
+docker compose -f infrastructure/docker/docker-compose.yml up -d backend
+```
+
+Share the URL. Notes:
+
+- The tunnel lives as long as the `cloudflared` process runs and your machine
+  stays awake (`caffeinate -d` helps during long demos). There is no uptime
+  guarantee — it is meant for demos, not hosting.
+- Every restart of `cloudflared` generates a **new random URL**; update
+  `FRONTEND_URL` and restart the backend when that happens.
+- Anyone with the link can sign up and chat, which consumes your OpenAI
+  credit. Set a usage limit on your OpenAI account and stop the tunnel
+  (`Ctrl+C`) when you are done.
+
+A good demo flow: upload a PDF → watch it index live → ask questions with
+Hybrid/Vector/Keyword modes → open the citations panel → show Swagger UI and
+Grafana for the engineering story.
 
 ## Manual Development Setup
 
@@ -141,6 +188,7 @@ Dev server listens on port `5173` and proxies `/api` to the backend.
 | `REDIS_HOST` / `REDIS_PORT` | Redis connection |
 | `STORAGE_TYPE` | `local` or `s3` |
 | `SERVER_PORT` | Defaults to `8080` |
+| `FRONTEND_URL` | Extra allowed CORS origin (e.g. a tunnel URL for live demos) |
 
 Optional AI / RAG knobs include `OPENAI_CHAT_MODEL`, `OPENAI_EMBEDDING_MODEL`, `RAG_CHUNK_SIZE`, `RAG_TOP_K`, and `RAG_SEARCH_MODE` (`HYBRID` \| `VECTOR` \| `KEYWORD`).
 

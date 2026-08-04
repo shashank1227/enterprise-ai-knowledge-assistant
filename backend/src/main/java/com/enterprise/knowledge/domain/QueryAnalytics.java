@@ -2,6 +2,9 @@ package com.enterprise.knowledge.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Array;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -31,6 +34,8 @@ public class QueryAnalytics {
     @Column(name = "query_text", nullable = false, columnDefinition = "TEXT")
     private String queryText;
 
+    @JdbcTypeCode(SqlTypes.VECTOR)
+    @Array(length = 1536)
     @Column(name = "query_embedding", columnDefinition = "vector(1536)")
     private float[] queryEmbedding;
 

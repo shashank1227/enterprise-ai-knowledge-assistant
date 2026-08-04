@@ -117,6 +117,12 @@
       <artifactId>pgvector</artifactId>
       <version>0.1.6</version>
     </dependency>
+    <!-- Hibernate mapping for pgvector's vector column type (float[] <-> vector) -->
+    <dependency>
+      <groupId>org.hibernate.orm</groupId>
+      <artifactId>hibernate-vector</artifactId>
+      <version>${hibernate.version}</version>
+    </dependency>
 
     <!-- ── JWT ── -->
     <dependency>

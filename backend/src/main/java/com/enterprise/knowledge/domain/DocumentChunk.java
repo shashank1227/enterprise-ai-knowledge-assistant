@@ -2,6 +2,9 @@ package com.enterprise.knowledge.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Array;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -56,9 +59,12 @@ public class DocumentChunk {
 
     /**
      * The 1536-dimensional embedding vector stored as a PostgreSQL vector type.
-     * We use float[] and handle the pgvector casting in native queries.
-     * The HNSW index on this column enables sub-millisecond ANN search.
+     * Mapped via hibernate-vector (SqlTypes.VECTOR) so Hibernate can read and
+     * write the pgvector column directly; similarity search still uses native
+     * queries. The HNSW index on this column enables sub-millisecond ANN search.
      */
+    @JdbcTypeCode(SqlTypes.VECTOR)
+    @Array(length = 1536)
     @Column(columnDefinition = "vector(1536)")
     private float[] embedding;
 
